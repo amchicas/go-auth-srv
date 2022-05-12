@@ -48,7 +48,7 @@ message ValidateResp{
 
     int64 status = 1;
     string error = 2;
-    int64 userId = 3;
+    uint64 userId = 3;
     string username = 5;
     int64 role = 6;
 }

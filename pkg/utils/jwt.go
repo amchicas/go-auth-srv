@@ -14,7 +14,7 @@ type JwtWrapper struct {
 	ExpirationHours int64
 }
 type jwtClaims struct {
-	Id       int64
+	Id       uint64
 	Username string
 	Role     int64
 	jwt.StandardClaims

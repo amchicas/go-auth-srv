@@ -7,9 +7,9 @@ services:
     volumes:
       - ~/apps/mariadb:/var/lib/mysql
     environment:
-      - MARIADB_ROOT_PASSWORD=S3curity2022
-      - MARIADB_USER=enretauser
-      - MARIADB_PASSWORD=Security2022
+      - MARIADB_ROOT_PASSWORD=rootpassword
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=password
       - MARIADB_DATABASE=go_auth_srv
   adminer:
       image: adminer
