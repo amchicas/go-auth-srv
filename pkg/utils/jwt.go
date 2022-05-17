@@ -20,7 +20,7 @@ type jwtClaims struct {
 	jwt.StandardClaims
 }
 
-func (j *JwtWrapper) Sign(user *domain.Auth) (signedToken string, err error) {
+func (j *JwtWrapper) Sign(user *domain.User) (signedToken string, err error) {
 
 	claims := &jwtClaims{
 		Id:       user.Id,

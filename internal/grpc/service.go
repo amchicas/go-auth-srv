@@ -1,45 +1,43 @@
-package services
+package grpc
 
 import (
 	"context"
 	"net/http"
-	"time"
 
-	"github.com/amchicas/go-auth-srv/internal/domain"
+	"github.com/amchicas/go-auth-srv/internal/adder"
+	"github.com/amchicas/go-auth-srv/internal/fetcher"
 	"github.com/amchicas/go-auth-srv/pkg/log"
 	"github.com/amchicas/go-auth-srv/pkg/pb"
 	"github.com/amchicas/go-auth-srv/pkg/utils"
 )
 
-type Service struct {
-	repo   domain.Repository
+type authHandler struct {
+	aS     adder.Service
+	fS     fetcher.Service
 	logger *log.Logger
 	jwt    utils.JwtWrapper
 }
 
-func New(repo domain.Repository, logger *log.Logger, jwt utils.JwtWrapper) *Service {
+func NewHandler(adderService adder.Service, fetcherService fetcher.Service, logger *log.Logger, jwt utils.JwtWrapper) pb.AuthServiceServer {
 
-	return &Service{
-		repo:   repo,
+	return &authHandler{
+		aS:     adderService,
+		fS:     fetcherService,
 		logger: logger,
 		jwt:    jwt,
 	}
 
 }
 
-func (s *Service) Register(ctx context.Context, req *pb.RegisterReq) (*pb.RegisterResp, error) {
-	var user domain.Auth
-	_, err := s.repo.GetByEmail(ctx, req.Email)
+func (s *authHandler) Register(ctx context.Context, req *pb.RegisterReq) (*pb.RegisterResp, error) {
+	_, err := s.fS.FetchUserByEmail(ctx, req.Email)
 	if err == nil {
 		return &pb.RegisterResp{
 			Status: http.StatusConflict,
 			Error:  "Email already exist",
 		}, nil
 	}
-	user.Username = req.Username
-	user.Email = req.Email
-	user.Role = req.Role
-	user.Password, err = utils.HashPassword(req.Password)
+	password, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return &pb.RegisterResp{
 			Status: http.StatusInternalServerError,
@@ -47,9 +45,7 @@ func (s *Service) Register(ctx context.Context, req *pb.RegisterReq) (*pb.Regist
 		}, nil
 
 	}
-	user.Created = time.Now().Unix()
-	user.Modified = time.Now().Unix()
-	err = s.repo.CreateUser(ctx, &user)
+	_, err = s.aS.AddUser(ctx, req.Username, req.Email, password, req.Role)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return &pb.RegisterResp{
@@ -65,8 +61,8 @@ func (s *Service) Register(ctx context.Context, req *pb.RegisterReq) (*pb.Regist
 
 }
 
-func (s *Service) Login(ctx context.Context, req *pb.LoginReq) (*pb.LoginResp, error) {
-	user, err := s.repo.GetByEmail(ctx, req.Email)
+func (s *authHandler) Login(ctx context.Context, req *pb.LoginReq) (*pb.LoginResp, error) {
+	user, err := s.fS.FetchUserByEmail(ctx, req.Email)
 	if err != nil {
 		return &pb.LoginResp{
 			Status: http.StatusNotFound,
@@ -92,16 +88,14 @@ func (s *Service) Login(ctx context.Context, req *pb.LoginReq) (*pb.LoginResp, e
 	}, nil
 
 }
-func (s *Service) Validate(ctx context.Context, req *pb.ValidateReq) (*pb.ValidateResp, error) {
+func (s *authHandler) Validate(ctx context.Context, req *pb.ValidateReq) (*pb.ValidateResp, error) {
 	claim, err := s.jwt.Validate(req.Token)
 	if err != nil {
 
 		return &pb.ValidateResp{
-
 			Status: http.StatusNotFound,
 			Error:  "Bad token",
 		}, nil
-
 	}
 
 	return &pb.ValidateResp{

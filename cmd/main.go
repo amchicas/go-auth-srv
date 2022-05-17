@@ -1,17 +1,17 @@
 package main
 
 import (
-	"net"
-
-	"github.com/amchicas/go-auth-srv/pkg/log"
-	"github.com/amchicas/go-auth-srv/pkg/pb"
-	"github.com/amchicas/go-auth-srv/pkg/utils"
-	"google.golang.org/grpc"
+	"context"
 
 	"github.com/amchicas/go-auth-srv/config"
+	"github.com/amchicas/go-auth-srv/internal/adder"
 	"github.com/amchicas/go-auth-srv/internal/domain"
-	"github.com/amchicas/go-auth-srv/internal/services"
+	"github.com/amchicas/go-auth-srv/internal/fetcher"
+	"github.com/amchicas/go-auth-srv/internal/grpc"
 	"github.com/amchicas/go-auth-srv/internal/storage/mysql"
+	"github.com/amchicas/go-auth-srv/pkg/log"
+	"github.com/amchicas/go-auth-srv/pkg/utils"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -22,25 +22,23 @@ func main() {
 		logger.Error("Failed at config" + err.Error())
 	}
 	repo := newMysql(c.MysqlUrl, logger)
+
+	adderService := adder.New(repo, logger)
+	fetcherService := fetcher.New(repo, logger)
+
 	jwt := utils.JwtWrapper{
 		SecretKey:       c.Secret,
-		Issuer:          "enretaserno",
+		Issuer:          "enretaservo.com",
 		ExpirationHours: 24 * 2,
 	}
-	lis, err := net.Listen("tcp", c.Port)
-	if err != nil {
-
-		logger.Error("Failed at server" + err.Error())
-
-	}
-
-	srv := services.New(repo, logger, jwt)
-	grpcServer := grpc.NewServer()
-	pb.RegisterAuthServiceServer(grpcServer, srv)
-	if err := grpcServer.Serve(lis); err != nil {
-		logger.Error("Failed to server :" + err.Error())
-
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		srv := grpc.NewServer(c.Port, adderService, fetcherService, logger, jwt)
+		return srv.Serve()
+	})
+	logger.Fatal(g.Wait().Error())
 }
 
 func newMysql(url string, logger *log.Logger) domain.Repository {

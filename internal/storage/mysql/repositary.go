@@ -27,7 +27,7 @@ func NewRepository(db *sql.DB) domain.Repository {
 		db: db,
 	}
 }
-func (r *repository) CreateUser(ctx context.Context, user *domain.Auth) error {
+func (r *repository) CreateUser(ctx context.Context, user *domain.User) error {
 	stmt, err := r.db.PrepareContext(ctx, QUERY_CREATE_USER)
 	if err != nil {
 
@@ -44,8 +44,8 @@ func (r *repository) CreateUser(ctx context.Context, user *domain.Auth) error {
 
 }
 
-func (r *repository) GetByEmail(ctx context.Context, email string) (*domain.Auth, error) {
-	auth := &domain.Auth{}
+func (r *repository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	user := &domain.User{}
 	stmt, err := r.db.PrepareContext(ctx, QUERY_GET_USER_EMAIL)
 	if err != nil {
 		return nil, err
@@ -53,12 +53,12 @@ func (r *repository) GetByEmail(ctx context.Context, email string) (*domain.Auth
 	}
 	defer stmt.Close()
 
-	err = stmt.QueryRowContext(ctx, email).Scan(&auth.Id, &auth.Username, &auth.Email, &auth.Password, &auth.Role)
+	err = stmt.QueryRowContext(ctx, email).Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Role)
 	if err == sql.ErrNoRows {
-		return &domain.Auth{}, errors.New("No exist user ")
+		return &domain.User{}, errors.New("No exist user ")
 	}
 	if err != nil {
-		return &domain.Auth{}, err
+		return &domain.User{}, err
 	}
-	return auth, nil
+	return user, nil
 }
